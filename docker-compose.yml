@@ -1,0 +1,56 @@
+version: '3'
+
+networks:
+  internal:
+    driver: bridge
+
+services:
+  kafka:
+    image: bitnami/kafka:latest
+    environment:
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT
+      - KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092
+      - KAFKA_LISTENER_NAME=PLAINTEXT
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions.sh", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+
+  zookeeper:
+    image: bitnami/zookeeper:latest
+    ports:
+      - "2181:2181"
+    networks:
+      - internal
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+
+  producer_service:
+    build: ./producer_service
+    ports:
+      - "3001:3000"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - internal
+
+  consumer_service:
+    build: ./consumer_service
+    ports:
+      - "3002:3000"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - internal
